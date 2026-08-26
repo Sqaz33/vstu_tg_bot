@@ -83,3 +83,6 @@ def test_real_fevt_workbook_smoke() -> None:
     assert "ЭВМ-1.2" in parsed.groups
     assert any(lesson.teacher for lesson in parsed.lessons)
     assert any(lesson.explicit_dates for lesson in parsed.lessons)
+    # The visual border below the POAS-1.2 card is part of its semantics.
+    assert workbook.sheets[0].style(183, 30).border.bottom > 0  # AE184
+    assert workbook.sheets[0].style(183, 33).border.bottom > 0  # AH184

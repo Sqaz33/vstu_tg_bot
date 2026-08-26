@@ -5,7 +5,14 @@ from pathlib import Path
 import openpyxl
 import xlrd
 
-from vstu_schedule_bot.parsing.base import CellRegion, SheetGrid, WorkbookGrid, WorkbookReader
+from vstu_schedule_bot.parsing.base import (
+    CellBorder,
+    CellRegion,
+    CellStyle,
+    SheetGrid,
+    WorkbookGrid,
+    WorkbookReader,
+)
 
 
 def _text(value: object) -> str:
@@ -14,6 +21,70 @@ def _text(value: object) -> str:
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     return " ".join(str(value).replace("\n", " ").split())
+
+
+def _xls_color(book: xlrd.book.Book, color_index: int, fallback: str) -> str:
+    rgb = book.colour_map.get(color_index)
+    if not rgb:
+        return fallback
+    return f"#{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}"
+
+
+def _xlsx_color(color: object, fallback: str) -> str:
+    color_type = getattr(color, "type", None)
+    value = getattr(color, "rgb", None) if color_type == "rgb" else None
+    if isinstance(value, str):
+        return f"#{value[-6:].upper()}"
+    return fallback
+
+
+_BORDER_STYLES = {
+    None: 0,
+    "hair": 1,
+    "thin": 1,
+    "dotted": 1,
+    "dashDotDot": 1,
+    "dashDot": 1,
+    "dashed": 1,
+    "mediumDashDotDot": 2,
+    "slantDashDot": 2,
+    "mediumDashDot": 2,
+    "mediumDashed": 2,
+    "medium": 2,
+    "double": 5,
+    "thick": 5,
+}
+
+
+def _xlsx_border_style(value: str | None) -> int:
+    return _BORDER_STYLES.get(value, 1 if value else 0)
+
+
+def _xls_cell_style(book: xlrd.book.Book, xf: xlrd.formatting.XF) -> CellStyle:
+    border = xf.border
+    cell_border = (
+        CellBorder(
+            top=border.top_line_style,
+            bottom=border.bottom_line_style,
+            left=border.left_line_style,
+            right=border.right_line_style,
+        )
+        if border is not None
+        else CellBorder()
+    )
+    background = xf.background
+    fill_color = (
+        _xls_color(book, background.pattern_colour_index, "#FFFFFF")
+        if background is not None
+        else "#FFFFFF"
+    )
+    font = book.font_list[xf.font_index]
+    return CellStyle(
+        border=cell_border,
+        font_color=_xls_color(book, font.colour_index, "#000000"),
+        fill_color=fill_color,
+        bold=bool(font.bold),
+    )
 
 
 class XlsReader:
@@ -36,6 +107,14 @@ class XlsReader:
                     for r0, r1, c0, c1 in source.merged_cells
                 }
                 regions = [CellRegion(*coords, value) for coords, value in merged.items()]
+                styles = tuple(
+                    tuple(
+                        _xls_cell_style(book, xf)
+                        for col in range(source.ncols)
+                        for xf in (book.xf_list[source.cell_xf_index(row, col)],)
+                    )
+                    for row in range(source.nrows)
+                )
                 merged_covered = {
                     (row, col)
                     for r0, r1, c0, c1 in merged
@@ -54,6 +133,7 @@ class XlsReader:
                         cols=source.ncols,
                         values=values,
                         regions=tuple(regions),
+                        styles=styles,
                     )
                 )
         finally:
@@ -84,6 +164,24 @@ class XlsxReader:
                 )
                 merged_coords[coords] = values[coords[0]][coords[2]]
             regions = [CellRegion(*coords, value) for coords, value in merged_coords.items()]
+            styles = tuple(
+                tuple(
+                    CellStyle(
+                        border=CellBorder(
+                            top=_xlsx_border_style(cell.border.top.style),
+                            bottom=_xlsx_border_style(cell.border.bottom.style),
+                            left=_xlsx_border_style(cell.border.left.style),
+                            right=_xlsx_border_style(cell.border.right.style),
+                        ),
+                        font_color=_xlsx_color(cell.font.color, "#000000"),
+                        fill_color=_xlsx_color(cell.fill.fgColor, "#FFFFFF"),
+                        bold=bool(cell.font.bold),
+                    )
+                    for col in range(cols)
+                    for cell in (source.cell(row + 1, col + 1),)
+                )
+                for row in range(rows)
+            )
             merged_covered = {
                 (row, col)
                 for r0, r1, c0, c1 in merged_coords
@@ -102,6 +200,7 @@ class XlsxReader:
                     cols=cols,
                     values=values,
                     regions=tuple(regions),
+                    styles=styles,
                 )
             )
         book.close()

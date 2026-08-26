@@ -9,6 +9,25 @@ from vstu_schedule_bot.domain.models import ParsedSchedule
 
 
 @dataclass(frozen=True, slots=True)
+class CellBorder:
+    top: int = 0
+    bottom: int = 0
+    left: int = 0
+    right: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class CellStyle:
+    border: CellBorder = CellBorder()
+    font_color: str = "#000000"
+    fill_color: str = "#FFFFFF"
+    bold: bool = False
+
+
+DEFAULT_CELL_STYLE = CellStyle()
+
+
+@dataclass(frozen=True, slots=True)
 class CellRegion:
     row_start: int
     row_end: int
@@ -40,11 +59,20 @@ class SheetGrid:
     cols: int
     values: tuple[tuple[str, ...], ...]
     regions: tuple[CellRegion, ...]
+    styles: tuple[tuple[CellStyle, ...], ...] = ()
 
     def value(self, row: int, col: int) -> str:
         if row < 0 or col < 0 or row >= self.rows or col >= self.cols:
             return ""
         return self.values[row][col]
+
+    def style(self, row: int, col: int) -> CellStyle:
+        if row < 0 or col < 0 or row >= len(self.styles):
+            return DEFAULT_CELL_STYLE
+        style_row = self.styles[row]
+        if col >= len(style_row):
+            return DEFAULT_CELL_STYLE
+        return style_row[col]
 
 
 @dataclass(frozen=True, slots=True)
