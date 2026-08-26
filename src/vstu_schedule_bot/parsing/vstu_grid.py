@@ -39,6 +39,7 @@ PAIR_TIMES = {
 _GROUP_RE = re.compile(r"^[A-ZА-ЯЁ]{1,12}\s*-\s*\d(?:[.\dA-ZА-ЯЁ]*)?$", re.IGNORECASE)
 _PAIR_RE = re.compile(r"^\s*(\d{1,2})\s*[-–]\s*(\d{1,2})\s*$")
 _DATE_RE = re.compile(r"(?<!\d)(\d{1,2})\s*\.\s*(\d{1,2})(?:\s*\.\s*(\d{2,4}))?(?!\d)")
+_COMPACT_DATE_RE = re.compile(r"(?:(?<=,)|^)\s*(\d{2})(\d{2})\s*(?=,|$)")
 _YEAR_RE = re.compile(r"(20\d{2})\s*[-–]\s*(20\d{2})")
 _INITIALS_RE = re.compile(r"\b[А-ЯЁA-Z][а-яёa-z-]+\s+(?:[А-ЯЁA-Z]\.){1,2}", re.IGNORECASE)
 _ROOM_RE = re.compile(
@@ -392,7 +393,13 @@ class VstuGridParser(ScheduleParser):
     @staticmethod
     def _dates(value: str, year_start: int, year_end: int) -> list[date]:
         result: list[date] = []
-        for day_text, month_text, year_text in _DATE_RE.findall(value):
+        matches = list(_DATE_RE.findall(value))
+        if matches:
+            matches.extend(
+                (day_text, month_text, "")
+                for day_text, month_text in _COMPACT_DATE_RE.findall(value)
+            )
+        for day_text, month_text, year_text in matches:
             day, month = int(day_text), int(month_text)
             if year_text:
                 year = int(year_text)

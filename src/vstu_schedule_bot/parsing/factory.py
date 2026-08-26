@@ -4,7 +4,7 @@ from vstu_schedule_bot.parsing.base import ParserRegistry
 from vstu_schedule_bot.parsing.fevt_master import FevtMasterGridParser
 from vstu_schedule_bot.parsing.vstu_grid import VstuGridParser
 
-PARSER_CACHE_VERSION = "formatted-cards-v2"
+PARSER_CACHE_VERSION = "formatted-cards-v3"
 
 
 def create_parser_registry() -> ParserRegistry:

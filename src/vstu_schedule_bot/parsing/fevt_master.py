@@ -125,11 +125,18 @@ class FevtMasterGridParser(VstuGridParser):
                 if region.row_start >= header_row and region.value.upper() in DAY_NAMES
             )
         )
+        day_steps = [
+            right[0] - left[0]
+            for left, right in zip(day_anchors, day_anchors[1:], strict=False)
+            if 0 < right[0] - left[0] <= 36
+        ]
+        day_height = round(median(day_steps)) if day_steps else 18
         lessons: list[Lesson] = []
         for day_index, (day_start, weekday) in enumerate(day_anchors):
-            day_end = (
+            next_anchor = (
                 day_anchors[day_index + 1][0] if day_index + 1 < len(day_anchors) else sheet.rows
             )
+            day_end = min(next_anchor, day_start + day_height)
             slots = self._slots(sheet, lesson_col, day_start, day_end)
             if not slots:
                 continue
@@ -296,8 +303,14 @@ class FevtMasterGridParser(VstuGridParser):
         limit: int,
     ) -> int:
         for row in range(max(subject.row_start, subject.row_end - 1), limit):
-            left = sheet.style(row, col_start).border.bottom
-            right = sheet.style(row, col_end - 1).border.bottom
+            left = max(
+                sheet.style(row, col_start).border.bottom,
+                sheet.style(row + 1, col_start).border.top,
+            )
+            right = max(
+                sheet.style(row, col_end - 1).border.bottom,
+                sheet.style(row + 1, col_end - 1).border.top,
+            )
             if left and right:
                 return row + 1
         return limit

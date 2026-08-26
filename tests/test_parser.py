@@ -62,7 +62,7 @@ def _grid() -> WorkbookGrid:
 
 
 def _formatted_fevt_grid() -> WorkbookGrid:
-    rows, cols = 17, 14
+    rows, cols = 45, 14
     values = [["" for _ in range(cols)] for _ in range(rows)]
     styles = [[CellStyle() for _ in range(cols)] for _ in range(rows)]
     values[0][0] = "Учебные занятия 1 курса магистров ФЭВТ на I семестр 2026-2027"
@@ -75,11 +75,12 @@ def _formatted_fevt_grid() -> WorkbookGrid:
     values[5][5] = "3-4"
     values[8][5] = "5-6"
     values[11][5] = "7-8"
-    values[14][4] = "ВТОРНИК"
-    values[14][5] = "1-2"
+    values[20][4] = "ВТОРНИК"
+    values[20][5] = "1-2"
+    values[40][10] = "НАЧАЛЬНИК УЧЕБНОГО ОТДЕЛА"
 
     for col in (10, 13):
-        styles[7][col] = CellStyle(border=CellBorder(bottom=1))
+        styles[8][col] = CellStyle(border=CellBorder(top=1))
     for col in (6, 9, 10, 13):
         styles[13][col] = CellStyle(border=CellBorder(bottom=1))
 
@@ -88,13 +89,13 @@ def _formatted_fevt_grid() -> WorkbookGrid:
         CellRegion(0, 1, 1, 2, values[0][1]),
         CellRegion(1, 2, 6, 10, values[1][6]),
         CellRegion(1, 2, 10, 14, values[1][10]),
-        CellRegion(2, 14, 4, 5, values[2][4]),
+        CellRegion(2, 20, 4, 5, values[2][4]),
         CellRegion(2, 3, 5, 6, values[2][5]),
         CellRegion(5, 6, 5, 6, values[5][5]),
         CellRegion(8, 9, 5, 6, values[8][5]),
         CellRegion(11, 12, 5, 6, values[11][5]),
-        CellRegion(14, 17, 4, 5, values[14][4]),
-        CellRegion(14, 15, 5, 6, values[14][5]),
+        CellRegion(20, 38, 4, 5, values[20][4]),
+        CellRegion(20, 21, 5, 6, values[20][5]),
         CellRegion(2, 4, 10, 14, "АНАЛИЗ И ВИЗУАЛИЗАЦИЯ ДАННЫХ"),
         CellRegion(4, 5, 10, 14, "07.09"),
         CellRegion(6, 7, 10, 13, "Гилка В.В."),
@@ -103,6 +104,7 @@ def _formatted_fevt_grid() -> WorkbookGrid:
         CellRegion(10, 11, 6, 14, "14.09"),
         CellRegion(12, 13, 6, 13, "Аникин А.В."),
         CellRegion(12, 13, 13, 14, "В-903"),
+        CellRegion(40, 42, 10, 14, values[40][10]),
     )
     return WorkbookGrid(
         filename="fevt-master.xls",
@@ -157,6 +159,18 @@ def test_fevt_parser_uses_card_borders_group_span_and_date_override() -> None:
         ("ПОАС-1.2", "5–8"),
     ]
     assert all(lesson.explicit_dates == (date(2026, 9, 14),) for lesson in shared)
+    assert all("НАЧАЛЬНИК" not in lesson.subject for lesson in parsed.lessons)
+
+
+def test_compact_date_typo_is_read_only_inside_a_date_list() -> None:
+    parser = VstuGridParser()
+
+    assert parser._dates("16.09, 1410, 11.11", 2026, 2027) == [
+        date(2026, 9, 16),
+        date(2026, 11, 11),
+        date(2026, 10, 14),
+    ]
+    assert parser._dates("В-1303", 2026, 2027) == []
 
 
 @pytest.mark.skipif(not Path(".research/fevt1.xls").exists(), reason="local research file")
@@ -168,7 +182,7 @@ def test_real_fevt_workbook_smoke() -> None:
 
     assert isinstance(parser, FevtMasterGridParser)
     assert len(parsed.groups) == 9
-    assert len(parsed.lessons) >= 100
+    assert len(parsed.lessons) == 116
     assert "ЭВМ-1.2" in parsed.groups
     assert any(lesson.teacher for lesson in parsed.lessons)
     assert any(lesson.explicit_dates for lesson in parsed.lessons)
@@ -216,7 +230,7 @@ def test_real_fevt_workbook_smoke() -> None:
             "АНАЛИЗ И ВИЗУАЛИЗАЦИЯ ДАННЫХ",
         ): "03.09,17.09,15.10,29.10,12.11,26.11,10.12,24.12",  # noqa: E501
         ("ПОАС-1.1", 3, "9–12", "АНАЛИЗ И ВИЗУАЛИЗАЦИЯ ДАННЫХ"): "24.09,22.10,19.11,17.12",
-        ("ПОАС-1.1", 4, "1–6", "АНАЛИЗ И ВИЗУАЛИЗАЦИЯ ДАННЫХ"): "25.09,23.10,20.11,18.12",
+        ("ПОАС-1.1", 4, "1–4", "АНАЛИЗ И ВИЗУАЛИЗАЦИЯ ДАННЫХ"): "25.09,23.10,20.11,18.12",
         (
             "ПОАС-1.1",
             4,
@@ -237,7 +251,7 @@ def test_real_fevt_workbook_smoke() -> None:
             "5–8",
             "РЕЛЯЦИОННЫЕ И НЕРЕЛЯЦИОННЫЕ СИСТЕМЫ БАЗ ДАННЫХ",
         ): "14.09,12.10,09.11,07.12",  # noqa: E501
-        ("ПОАС-1.2", 1, "1–6", "АНАЛИЗ И ВИЗУАЛИЗАЦИЯ ДАННЫХ"): "29.09,27.10,24.11,22.12",
+        ("ПОАС-1.2", 1, "1–4", "АНАЛИЗ И ВИЗУАЛИЗАЦИЯ ДАННЫХ"): "29.09,27.10,24.11,22.12",
         (
             "ПОАС-1.2",
             2,
@@ -283,3 +297,17 @@ def test_real_fevt_workbook_smoke() -> None:
     assert [(lesson.pair_label, lesson.subject) for lesson in september_12] == [
         ("1–4", "РАЗРАБОТКА ABAP-ПРИЛОЖЕНИЙ В СРЕДЕ SAP")
     ]
+    assert all("НАЧАЛЬНИК УЧЕБНОГО ОТДЕЛА" not in lesson.subject for lesson in parsed.lessons)
+    evm_shared = [
+        lesson
+        for lesson in parsed.lessons
+        if lesson.group == "ЭВМ-1.2"
+        and lesson.subject.startswith("ТЕХНОЛОГИИ ПРОГРАММИРОВАНИЯ")
+        and lesson.weekday == 2
+    ]
+    assert evm_shared[0].explicit_dates == (
+        date(2026, 9, 16),
+        date(2026, 10, 14),
+        date(2026, 11, 11),
+        date(2026, 12, 9),
+    )
