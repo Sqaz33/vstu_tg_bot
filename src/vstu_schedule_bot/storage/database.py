@@ -92,6 +92,7 @@ class Database:
                 sha256 TEXT,
                 etag TEXT,
                 last_modified TEXT,
+                parser_version TEXT,
                 checked_at TEXT NOT NULL,
                 updated_at TEXT,
                 status TEXT NOT NULL,
@@ -105,6 +106,14 @@ class Database:
             );
             """
         )
+        columns = {
+            str(row[1])
+            for row in await (
+                await self.connection.execute("PRAGMA table_info(source_state)")
+            ).fetchall()
+        }
+        if "parser_version" not in columns:
+            await self.connection.execute("ALTER TABLE source_state ADD COLUMN parser_version TEXT")
         await self.connection.commit()
 
     async def replace_schedule(
@@ -116,6 +125,7 @@ class Database:
         sha256: str,
         etag: str | None,
         last_modified: str | None,
+        parser_version: str,
         checked_at: datetime,
     ) -> None:
         async with self._write_lock:
@@ -192,20 +202,30 @@ class Database:
                 await self.connection.execute(
                     """
                     INSERT INTO source_state(
-                        url, label, sha256, etag, last_modified, checked_at,
+                        url, label, sha256, etag, last_modified, parser_version, checked_at,
                         updated_at, status, error
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'updated', NULL)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'updated', NULL)
                     ON CONFLICT(url) DO UPDATE SET
                         label=excluded.label,
                         sha256=excluded.sha256,
                         etag=excluded.etag,
                         last_modified=excluded.last_modified,
+                        parser_version=excluded.parser_version,
                         checked_at=excluded.checked_at,
                         updated_at=excluded.updated_at,
                         status='updated',
                         error=NULL
                     """,
-                    (source_url, source_label, sha256, etag, last_modified, now, now),
+                    (
+                        source_url,
+                        source_label,
+                        sha256,
+                        etag,
+                        last_modified,
+                        parser_version,
+                        now,
+                        now,
+                    ),
                 )
                 await self.connection.commit()
             except BaseException:

@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from vstu_schedule_bot.domain.models import UpdateResult, UpdateStatus
 from vstu_schedule_bot.parsing.base import ParserRegistry
+from vstu_schedule_bot.parsing.factory import PARSER_CACHE_VERSION
 from vstu_schedule_bot.parsing.readers import WorkbookReaderRegistry
 from vstu_schedule_bot.sources.vstu import VstuSourceClient
 from vstu_schedule_bot.storage.database import Database
@@ -51,16 +52,25 @@ class ScheduleUpdater:
             try:
                 source_file = await self._source.discover_file()
                 state = await self._database.get_source_state(source_file.url)
+                cache_is_current = bool(
+                    state and state.get("parser_version") == PARSER_CACHE_VERSION
+                )
                 downloaded = await self._source.download(
                     source_file,
-                    etag=str(state["etag"]) if state and state.get("etag") else None,
+                    etag=(
+                        str(state["etag"])
+                        if cache_is_current and state and state.get("etag")
+                        else None
+                    ),
                     last_modified=(
                         str(state["last_modified"])
-                        if state and state.get("last_modified")
+                        if cache_is_current and state and state.get("last_modified")
                         else None
                     ),
                 )
-                if downloaded.not_modified or (state and state.get("sha256") == downloaded.sha256):
+                if cache_is_current and (
+                    downloaded.not_modified or (state and state.get("sha256") == downloaded.sha256)
+                ):
                     await self._database.mark_source_checked(
                         source_url=source_file.url,
                         source_label=source_file.label,
@@ -89,6 +99,7 @@ class ScheduleUpdater:
                     sha256=downloaded.sha256,
                     etag=downloaded.etag,
                     last_modified=downloaded.last_modified,
+                    parser_version=PARSER_CACHE_VERSION,
                     checked_at=checked_at,
                 )
                 result = UpdateResult(

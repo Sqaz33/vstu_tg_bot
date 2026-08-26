@@ -58,6 +58,7 @@ async def test_atomic_schedule_storage_and_queries(tmp_path, schedule: ParsedSch
             sha256="abc",
             etag=None,
             last_modified=None,
+            parser_version="test-v1",
             checked_at=datetime(2026, 8, 26, tzinfo=UTC),
         )
         assert await database.list_groups() == ["ЭВМ-1.2"]
@@ -65,6 +66,8 @@ async def test_atomic_schedule_storage_and_queries(tmp_path, schedule: ParsedSch
         lessons = await database.lessons_for_group("ЭВМ-1.2", date(2026, 9, 14), date(2026, 9, 14))
         assert [lesson.subject for _, lesson in lessons] == ["ТЕСТИРОВАНИЕ", "АРХИТЕКТУРА"]
         assert await database.search_teachers("иван") == ["Иванов И.И."]
+        source_state = await database.get_source_state("https://example.test/schedule.xls")
+        assert source_state and source_state["parser_version"] == "test-v1"
 
         await database.set_user_group(42, "ЭВМ-1.2")
         assert await database.get_user_group(42) == "ЭВМ-1.2"
