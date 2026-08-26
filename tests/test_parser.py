@@ -61,6 +61,8 @@ def test_semantic_grid_parser_handles_merged_multi_pair_lesson() -> None:
     parsed = VstuGridParser().parse(_grid(), "ФЭВТ")
 
     assert parsed.groups == ("ЭВМ-1.2", "ЭКОМ-1", "ЭКОМ-1В")
+    assert parsed.semester_start == date(2026, 9, 1)
+    assert parsed.semester_end == date(2026, 12, 31)
     lesson = next(item for item in parsed.lessons if item.group == "ЭВМ-1.2")
     assert lesson.pair_label == "1–4"
     assert lesson.starts_at == "08:30"

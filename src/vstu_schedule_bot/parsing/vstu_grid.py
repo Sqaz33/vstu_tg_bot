@@ -423,5 +423,5 @@ class VstuGridParser(ScheduleParser):
     @staticmethod
     def _semester_bounds(year_start: int, year_end: int, semester: int | None) -> tuple[date, date]:
         if semester == 2:
-            return date(year_end, 1, 20), date(year_end, 7, 15)
-        return date(year_start, 8, 20), date(year_end, 1, 15)
+            return date(year_end, 2, 1), date(year_end, 6, 30)
+        return date(year_start, 9, 1), date(year_start, 12, 31)

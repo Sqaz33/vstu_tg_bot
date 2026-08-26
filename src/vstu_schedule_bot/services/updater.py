@@ -144,8 +144,7 @@ class ScheduleUpdater:
 
     async def run(self, stop_event: asyncio.Event) -> None:
         while not stop_event.is_set():
-            await self.update_once()
             try:
                 await asyncio.wait_for(stop_event.wait(), timeout=self._interval)
             except TimeoutError:
-                continue
+                await self.update_once()
