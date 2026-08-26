@@ -275,14 +275,16 @@ class VstuGridParser(ScheduleParser):
         semester_start: date,
         semester_end: date,
         sheet_name: str,
+        event_row_end: int | None = None,
+        fallback_dates: tuple[date, ...] = (),
     ) -> Lesson | None:
-        covered_slots = [
-            slot for slot in slots if subject_region.row_start <= slot[0] < subject_region.row_end
-        ]
+        preceding = [slot for slot in slots if slot[0] <= subject_region.row_start]
+        if not preceding:
+            return None
+        event_start_row = preceding[-1][0]
+        event_end_row = event_row_end or subject_region.row_end
+        covered_slots = [slot for slot in slots if event_start_row <= slot[0] < event_end_row]
         if not covered_slots:
-            preceding = [slot for slot in slots if slot[0] <= subject_region.row_start]
-            if not preceding:
-                return None
             covered_slots = [preceding[-1]]
 
         first_slot, last_slot = covered_slots[0], covered_slots[-1]
@@ -299,7 +301,9 @@ class VstuGridParser(ScheduleParser):
         teachers: list[str] = []
         rooms: list[str] = []
         types: list[str] = []
+        has_explicit_date_text = False
         for value in text_values:
+            has_explicit_date_text = has_explicit_date_text or bool(_DATE_RE.search(value))
             dates.extend(self._dates(value, year_start, year_end))
             type_match = _TYPE_RE.search(value)
             if type_match:
@@ -319,6 +323,7 @@ class VstuGridParser(ScheduleParser):
                 if semester_start <= value <= semester_end and value.weekday() == weekday
             }
         )
+        occurrence_dates = tuple(valid_dates) if has_explicit_date_text else fallback_dates
         return Lesson(
             group=group,
             weekday=weekday,
@@ -331,8 +336,10 @@ class VstuGridParser(ScheduleParser):
             lesson_type=" / ".join(_unique(types)),
             teacher="; ".join(_unique(teachers)),
             room=" / ".join(_unique(rooms)),
-            date_rule=DateRule.EXPLICIT if valid_dates else DateRule.WEEKLY,
-            explicit_dates=tuple(valid_dates),
+            date_rule=(
+                DateRule.EXPLICIT if has_explicit_date_text or fallback_dates else DateRule.WEEKLY
+            ),
+            explicit_dates=occurrence_dates,
             source_sheet=sheet_name,
             raw_text=" | ".join(text_values),
         )
