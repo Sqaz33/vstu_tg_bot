@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vstu-schedule-bot"
+version = "0.1.0"
+description = "Telegram bot and extensible Excel parser for VSTU schedules"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "VSTU Schedule Bot contributors" }]
+dependencies = [
+  "aiogram>=3.22,<4",
+  "aiohttp>=3.12,<4",
+  "aiosqlite>=0.21,<1",
+  "openpyxl>=3.1.5,<4",
+  "pydantic-settings>=2.10,<3",
+  "xlrd>=2.0.2,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.17,<2",
+  "pytest>=8.4,<10",
+  "pytest-asyncio>=1.1,<2",
+  "ruff>=0.12,<1",
+]
+
+[project.scripts]
+vstu-schedule-bot = "vstu_schedule_bot.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vstu_schedule_bot"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["vstu_schedule_bot"]
+
